@@ -38,81 +38,109 @@ End
 ```
 # PROGRAM
 ```
-import numpy as np
 import matplotlib.pyplot as plt
-
+import numpy as np
 # Parameters
-fs = 1000            # Sampling frequency (Hz)
-f = 5               # Message frequency (Hz)
-duration = 1         # Duration in seconds
-L = 16                # Number of quantization levels (e.g., 4-bit PCM)
-
-# Time vector
-t = np.linspace(0, duration, int(fs * duration), endpoint=False)
-
-# 1. Message Signal (Sine wave)
-message = np.sin(2 * np.pi * f * t)
-
-# 2. Clock Signal (Square wave)
-clock = 0.5 * (1 + np.sign(np.sin(2 * np.pi * fs * t)))
-
-# Normalize message to range 0-1
-msg_norm = (message - message.min()) / (message.max() - message.min())
-
-# 3. Quantization
-quantized = np.round(msg_norm * (L - 1)) / (L - 1)
-
-# 4. Encoding to binary
-bits_per_sample = int(np.log2(L))
-binary_data = [np.binary_repr(int(q * (L - 1)), width=bits_per_sample) for q in quantized]
-
-# Convert binary data to PCM modulated signal (flattened bitstream for visualization)
-bitstream = np.array([int(bit) for code in binary_data for bit in code])
-time_pcm = np.linspace(0, duration, len(bitstream), endpoint=False)
-
-# ----- PLOTS -----
-
-plt.figure(figsize=(12, 8))
-
-# Plot 1: Message signal
-plt.subplot(4, 1, 1)
-plt.plot(t, message, label="Message Signal", color='blue')
-plt.title("1. Message Signal")
-plt.xlabel("Time (s)")
+sampling_rate = 5000
+duration = 0.1
+quantization_levels = 16
+# Time base
+t = np.linspace(0, duration, int(sampling_rate * duration),
+endpoint=False)
+# Two message signals
+frequency1 = 50
+frequency2 = 120
+message_signal1 = np.sin(2 * np.pi * frequency1 * t)
+message_signal2 = np.sin(2 * np.pi * frequency2 * t)
+# Quantization
+def quantize(signal, levels):
+step = (max(signal) - min(signal)) / levels
+quantized = np.round(signal / step) * step
+pcm = ((quantized - min(quantized)) / step).astype(int)
+return quantized, pcm
+quantized_signal1, pcm_signal1 = quantize(message_signal1,
+quantization_levels)
+quantized_signal2, pcm_signal2 = quantize(message_signal2,
+quantization_levels)
+# Multiplexing the PCM signals
+# Interleaving samples from both signals
+multiplexed_pcm = np.empty((pcm_signal1.size + pcm_signal2.size,),
+dtype=int)
+multiplexed_pcm[0::2] = pcm_signal1
+multiplexed_pcm[1::2] = pcm_signal2
+# Time base for multiplexed stream (double samples)
+t_mux = np.linspace(0, duration, multiplexed_pcm.size, endpoint=False)
+# Clock signal for reference
+clock_signal = np.sign(np.sin(2 * np.pi * 200 * t))
+# Plotting
+plt.figure(figsize=(14, 12))
+plt.subplot(8, 1, 1)
+plt.plot(t, message_signal1, label="Message Signal 1 (50Hz)",
+color='blue')
+plt.title("Original Message Signal 1")
+plt.xlabel("Time [s]")
 plt.ylabel("Amplitude")
 plt.grid(True)
-
-# Plot 2: Clock signal
-plt.subplot(4, 1, 2)
-plt.plot(t, clock, label="Clock Signal", color='red')
-plt.title("2. Clock Signal")
-plt.xlabel("Time (s)")
-plt.ylabel("Clock")
-plt.ylim(-0.2, 1.2)
+plt.legend()
+plt.subplot(8, 1, 2)
+plt.plot(t, clock_signal, label="Clock Signal", color='green')
+plt.title("Clock Signal")
+plt.xlabel("Time [s]")
+plt.ylabel("Amplitude")
 plt.grid(True)
-
-# Plot 3: PCM Modulated Signal (Quantized)
-plt.subplot(4, 1, 3)
-plt.step(t, quantized, where='mid', label="PCM Quantized Signal", color='green')
-plt.title("3. PCM Modulated Signal (Quantized)")
-plt.xlabel("Time (s)")
-plt.ylabel("Level")
+plt.subplot(8, 1, 3)
+plt.step(t, quantized_signal1, label="Quantized Signal 1", color='red')
+plt.title("Quantized Signals")
+plt.xlabel("Time [s]")
+plt.ylabel("Amplitude")
 plt.grid(True)
-
-# Plot 4: PCM Signal without Demodulation (Bitstream)
-plt.subplot(4, 1, 4)
-plt.step(time_pcm, bitstream, where='post', label="PCM Bitstream", color='purple')
-plt.title("4. PCM Bitstream (Without Demodulation)")
-plt.xlabel("Time (s)")
-plt.ylabel("Bit")
-plt.ylim(-0.2, 1.2)
+plt.legend()
+plt.subplot(8, 1, 4)
+plt.plot(t, message_signal2, label="Message Signal 2 (120Hz)",
+color='orange', alpha=0.7)
+plt.title("Original Message Signal 2")
+plt.xlabel("Time [s]")
+plt.ylabel("Amplitude")
 plt.grid(True)
-
+plt.legend()
+plt.subplot(8, 1, 5)
+plt.plot(t, clock_signal, label="Clock Signal", color='green')
+plt.title("Clock Signal")
+plt.xlabel("Time [s]")
+plt.ylabel("Amplitude")
+plt.grid(True)
+plt.subplot(8, 1, 6)
+plt.step(t, quantized_signal2, label="Quantized Signal 2",
+color='purple', alpha=0.7)
+plt.title("Quantized Signals")
+plt.xlabel("Time [s]")
+plt.ylabel("Amplitude")
+plt.grid(True)
+plt.legend()
+plt.subplot(8, 1, 7)
+plt.step(t, quantized_signal1, label="Quantized Signal 1", color='red')
+plt.step(t, quantized_signal2, label="Quantized Signal 2",
+color='purple', alpha=0.7)
+plt.title("Quantized Signals")
+plt.xlabel("Time [s]")
+plt.ylabel("Amplitude")
+plt.grid(True)
+plt.legend()
+plt.subplot(8, 1, 8)
+plt.step(t_mux, multiplexed_pcm, label="Multiplexed PCM Signal",
+color='black')
+plt.title("Multiplexed PCM Signal (Interleaved)")
+plt.xlabel("Time [s]")
+plt.ylabel("PCM Value")
+plt.grid(True)
+plt.legend()
 plt.tight_layout()
 plt.show()
+
+
 ```
 # OUTPUT
-![Screenshot 2025-04-09 181607](https://github.com/user-attachments/assets/3a55332f-c6f6-4e77-bf1f-1ca1f59e5d2a)
+![image](https://github.com/user-attachments/assets/4a965060-6333-4635-9ab8-680472211c2b)
 
  
 # RESULT / CONCLUSIONS
